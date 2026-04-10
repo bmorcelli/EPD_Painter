@@ -49,6 +49,9 @@ public:
 
 struct I2CBusConfig {
     TwoWire* wire = nullptr;
+#ifndef ARDUINO
+    void* i2c_bus = nullptr;
+#endif
     int sda = -1;
     int scl = -1;
     uint32_t freq = 100000;

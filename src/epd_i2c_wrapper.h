@@ -19,6 +19,10 @@ public:
         i2c_driver_delete(_port);
     }
 
+    void* getBus() const {
+        return (void*)(uintptr_t)_port;
+    }
+
     void begin(int sda, int scl, uint32_t frequency=100000) {
         i2c_config_t conf = {};
         conf.mode = I2C_MODE_MASTER;

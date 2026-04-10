@@ -188,6 +188,9 @@ bool EPD_Painter::begin() {
     TwoWire *w = new TwoWire(0);
     w->begin(_config.i2c.sda, _config.i2c.scl, _config.i2c.freq);
     _config.i2c.wire = w;
+#ifndef ARDUINO
+    _config.i2c.i2c_bus = w->getBus();
+#endif
     EPD_DELAY_MS(50);
   }
 
