@@ -86,8 +86,22 @@ Use an explicit preset when you know the target hardware at compile time and wan
 | Binding | Header | Description |
 |---|---|---|
 | Adafruit GFX | `EPD_Painter_Adafruit.h` | Full Adafruit GFX API — `print()`, `drawBitmap()`, shapes, custom fonts |
+| LovyanGFX | `EPD_Painter_Lovyan.h` | Alternative to AdafruitGFX, natively supports ESP-IDF without Arduino core overhead |
 | LVGL v9 | `EPD_Painter_LVGL.h` | Complete LVGL widget library; flush callback wired automatically |
 | Raw driver | `EPD_Painter.h` | Bring your own 8bpp framebuffer |
+
+---
+
+### Using with ESP-IDF and LovyanGFX
+
+For native ESP-IDF development, the `EPD_Painter_Lovyan.h` wrapper is highly recommended because it provides a similar API to Adafruit GFX but operates purely in the ESP-IDF environment using the powerful LovyanGFX library. The wrapper automatically manages memory in PSRAM with an 8-bit color depth to guarantee fast screen updates.
+
+Ensure you include LovyanGFX in your `idf_component.yml` file:
+```yaml
+dependencies:
+  LovyanGFX:
+    git: https://github.com/lovyan03/LovyanGFX.git
+```
 
 ---
 
