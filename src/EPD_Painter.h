@@ -40,10 +40,7 @@ class EPD_ISRController;
 #include <hal/dma_types.h>
 #include <esp_intr_alloc.h>
 
-// I2C — TwoWire for Arduino only; ESP-IDF builds don't use I2C
-#ifdef ARDUINO
-  #include <Wire.h>
-#endif
+#include "build_opt.h"
 
 
 class EPD_Painter {
@@ -51,10 +48,9 @@ class EPD_Painter {
 public:
 
 struct I2CBusConfig {
-#ifdef ARDUINO
     TwoWire* wire = nullptr;
-#else
-    void* i2c_bus = nullptr;  // unused in ESP-IDF builds
+#ifndef ARDUINO
+    void* i2c_bus = nullptr;
 #endif
     int sda = -1;
     int scl = -1;

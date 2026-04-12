@@ -27,6 +27,7 @@ If none of those is defined, `EPD_PAINTER_PRESET_AUTO` is enabled automatically 
 | Binding | Header | Use when |
 |---|---|---|
 | Adafruit GFX | `EPD_Painter_Adafruit.h` | You want `print()`, `drawBitmap()`, shapes, fonts |
+| LovyanGFX | `EPD_Painter_Lovyan.h` | You want Adafruit GFX-like primitives natively on ESP-IDF |
 | LVGL v9 | `EPD_Painter_LVGL.h` | You want a full UI widget library |
 | Raw driver | `EPD_Painter.h` | You manage your own 8bpp pixel buffer |
 

@@ -18,31 +18,29 @@ bool epd_painter_powerctl::begin(EPD_Painter::Config cfg) {
 
   config = cfg;
 
-  // I2C not used in ESP-IDF builds
-
   // ---- Configure PCA9535: pins 8-13 outputs, 14-15 inputs ----
     for (int pin = 8; pin <= 13; ++pin) {
       if (!pcaPinMode(pin, PCA_OUTPUT)) {
-        printf("[PWRCTL] Failed setting PCA pin %d OUTPUT\n", pin);
+        EPD_PRINT("[PWRCTL] Failed setting PCA pin %d OUTPUT\n", pin);
         return false;
       }
     }
   if (!pcaPinMode(14, PCA_INPUT)) {
-    printf("[PWRCTL] Failed setting PCA pin 14 INPUT\n");
+    EPD_PRINT("[PWRCTL] Failed setting PCA pin 14 INPUT\n");
     return false;
   }
   if (!pcaPinMode(15, PCA_INPUT)) {
-    printf("[PWRCTL] Failed setting PCA pin 15 INPUT\n");
+    EPD_PRINT("[PWRCTL] Failed setting PCA pin 15 INPUT\n");
     return false;
   }
 
-  printf("[PWRCTL] PCA init OK. CFG1=0x%02X OUT1=0x%02X\n",
+  EPD_PRINT("[PWRCTL] PCA init OK. CFG1=0x%02X OUT1=0x%02X\n",
          _pca_cfg[1], _pca_out[1]);
   return true;
 }
 
 bool epd_painter_powerctl::powerOn() {
-  printf("[PWRCTL] Power-on sequence... \n");
+  EPD_PRINT("[PWRCTL] Power-on sequence... \n");
 
   if (!pcaWrite(PIN_OE, true))     return false;
   if (!pcaWrite(PIN_MODE, true))   return false;
@@ -52,12 +50,12 @@ bool epd_painter_powerctl::powerOn() {
 
   EPD_DELAY_MS(3);
 
-  printf("[PWRCTL] Waiting for PWR_GOOD...");
+  EPD_PRINT("[PWRCTL] Waiting for PWR_GOOD...");
   int timeout = 0;
   bool good = false;
   while (timeout < 400) {
     if (!pcaRead(PIN_PWRGOOD, good)) {
-      printf(" read error \n");
+      EPD_PRINT(" read error \n");
       return false;
     }
     if (good) break;
@@ -65,10 +63,10 @@ bool epd_painter_powerctl::powerOn() {
     ++timeout;
   }
   if (!good) {
-    printf(" TIMEOUT \n");
+    EPD_PRINT(" TIMEOUT \n");
     return false;
   }
-  printf(" OK (%d ms)\n", timeout);
+  EPD_PRINT(" OK (%d ms)\n", timeout);
 
   if (!tpsWrite(TPS_UPSEQ0, 0xE1)) return false;
   if (!tpsWrite(TPS_UPSEQ1, 0xAA)) return false;
@@ -81,14 +79,14 @@ bool epd_painter_powerctl::powerOn() {
   tpsRead(TPS_VCOM1, v1);
   tpsRead(TPS_VCOM2, v2);
   int vcom_mv = -(((int)(v2 & 0x01) << 8 | v1) * 10);
-  printf("[PWRCTL] TPS VCOM = %d mV (VCOM1=0x%02X VCOM2=0x%02X)\n", vcom_mv, v1, v2);
+  EPD_PRINT("[PWRCTL] TPS VCOM = %d mV (VCOM1=0x%02X VCOM2=0x%02X)\n", vcom_mv, v1, v2);
 
-  printf("[PWRCTL] Waiting for TPS PG...");
+  EPD_PRINT("[PWRCTL] Waiting for TPS PG...");
   timeout = 0;
   uint8_t pg = 0;
   while (timeout < 400) {
     if (!tpsRead(TPS_PG, pg)) {
-      printf(" read error \n");
+      EPD_PRINT(" read error \n");
       return false;
     }
     if ((pg & 0xFA) == 0xFA) break;
@@ -96,14 +94,14 @@ bool epd_painter_powerctl::powerOn() {
     ++timeout;
   }
 
-  printf(" PG=0x%02X (%d ms) %s\n",
+  EPD_PRINT(" PG=0x%02X (%d ms) %s\n",
          pg, timeout, ((pg & 0xFA) == 0xFA) ? "OK" : "TIMEOUT");
 
   return ((pg & 0xFA) == 0xFA);
 }
 
 void epd_painter_powerctl::powerOff() {
-  printf("[PWRCTL] Power-off... \n");
+  EPD_PRINT("[PWRCTL] Power-off... \n");
 
   pcaWrite(PIN_OE, false);
   pcaWrite(PIN_MODE, false);
@@ -147,18 +145,13 @@ void epd_painter_powerctl::setVcomMv(int vcom_mv) {
 // ---- PCA low-level ----
 
 bool epd_painter_powerctl::pcaWriteReg(uint8_t reg, uint8_t val) {
-#ifdef ARDUINO
   config.i2c.wire->beginTransmission(config.power.pca_addr);
   config.i2c.wire->write(reg);
   config.i2c.wire->write(val);
   return (config.i2c.wire->endTransmission() == 0);
-#else
-  return false;  // I2C not used in ESP-IDF builds
-#endif
 }
 
 bool epd_painter_powerctl::pcaReadReg(uint8_t reg, uint8_t& val) {
-#ifdef ARDUINO
   config.i2c.wire->beginTransmission(config.power.pca_addr);
   config.i2c.wire->write(reg);
   if (config.i2c.wire->endTransmission(false) != 0) return false;
@@ -166,9 +159,6 @@ bool epd_painter_powerctl::pcaReadReg(uint8_t reg, uint8_t& val) {
   if (n != 1 || !config.i2c.wire->available()) return false;
   val = config.i2c.wire->read();
   return true;
-#else
-  return false;  // I2C not used in ESP-IDF builds
-#endif
 }
 
 bool epd_painter_powerctl::pcaPinMode(uint8_t pin, uint8_t mode) {
@@ -210,30 +200,21 @@ bool epd_painter_powerctl::pcaRead(uint8_t pin, bool& val) {
 // ---- TPS low-level ----
 
 bool epd_painter_powerctl::tpsWrite(uint8_t reg, uint8_t val) {
-#ifdef ARDUINO
   config.i2c.wire->beginTransmission(config.power.tps_addr);
   config.i2c.wire->write(reg);
   config.i2c.wire->write(val);
   return (config.i2c.wire->endTransmission() == 0);
-#else
-  return false;  // I2C not used in ESP-IDF builds
-#endif
 }
 
 bool epd_painter_powerctl::tpsWrite16(uint8_t reg, uint8_t lo, uint8_t hi) {
-#ifdef ARDUINO
   config.i2c.wire->beginTransmission(config.power.tps_addr);
   config.i2c.wire->write(reg);
   config.i2c.wire->write(lo);
   config.i2c.wire->write(hi);
   return (config.i2c.wire->endTransmission() == 0);
-#else
-  return false;  // I2C not used in ESP-IDF builds
-#endif
 }
 
 bool epd_painter_powerctl::tpsRead(uint8_t reg, uint8_t& val) {
-#ifdef ARDUINO
   config.i2c.wire->beginTransmission(config.power.tps_addr);
   config.i2c.wire->write(reg);
   if (config.i2c.wire->endTransmission(false) != 0) return false;
@@ -241,16 +222,13 @@ bool epd_painter_powerctl::tpsRead(uint8_t reg, uint8_t& val) {
   if (n != 1 || !config.i2c.wire->available()) return false;
   val = config.i2c.wire->read();
   return true;
-#else
-  return false;  // I2C not used in ESP-IDF builds
-#endif
 }
 
 //#define EPD_DEBUG_REGISTERS
 #ifdef EPD_DEBUG_REGISTERS
-#define EPD_DEBUG_PRINT(...) printf(__VA_ARGS__)
+#define PWR_DEBUG_PRINT(...) EPD_PRINT(__VA_ARGS__)
 #else
-#define EPD_DEBUG_PRINT(...)
+#define PWR_DEBUG_PRINT(...)
 #endif
 
 bool epd_painter_powerctl_74HCT4094D::begin(EPD_Painter::Config& cfg) {
@@ -261,13 +239,13 @@ bool epd_painter_powerctl_74HCT4094D::begin(EPD_Painter::Config& cfg) {
   EPD_PIN_LOW(cfg.shift.strobe);
   _sr_hw = EPD_ShiftReg(cfg.shift.data, cfg.shift.clk, cfg.shift.strobe, cfg.shift.le_time);
   _sr_hw.reset();
-  EPD_DEBUG_PRINT("[PWRCTL] H752 shift-reg init OK (DATA=%d CLK=%d STR=%d)\n",
+  PWR_DEBUG_PRINT("[PWRCTL] H752 shift-reg init OK (DATA=%d CLK=%d STR=%d)\n",
                   cfg.shift.data, cfg.shift.clk, cfg.shift.strobe);
   return true;
 }
 
 bool epd_painter_powerctl_74HCT4094D::powerOn() {
-  EPD_DEBUG_PRINT("[PWRCTL] H752 power-on...\n");
+  PWR_DEBUG_PRINT("[PWRCTL] H752 power-on...\n");
   // Ensure all drive signals are low before enabling power.
   _pin_le.set(false);
   _pin_stv.set(false);
@@ -282,7 +260,7 @@ bool epd_painter_powerctl_74HCT4094D::powerOn() {
 }
 
 void epd_painter_powerctl_74HCT4094D::powerOff() {
-  EPD_DEBUG_PRINT("[PWRCTL] H752 power-off...\n");
+  PWR_DEBUG_PRINT("[PWRCTL] H752 power-off...\n");
   // Disable panel drive before removing power.
   _pin_le.set(false);
   _pin_stv.set(false);

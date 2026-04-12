@@ -19,9 +19,7 @@
 #include "epd_painter_bootctl.h"
 #include "epd_pin_driver.h"
 
-#ifdef ARDUINO
-  #include "Wire.h"
-#else
+#ifndef ARDUINO
   #include "freertos/FreeRTOS.h"
   #include "freertos/task.h"
   #include "freertos/semphr.h"
@@ -129,7 +127,7 @@ void EPD_Painter::sendRow(bool firstLine, bool lastLine, bool skipRow) {
   // since the LCD FIFO cannot drain faster than DMA fills it.
   //long count=0;
   while (LCD_CAM.lcd_user.lcd_start) {}
-  //printf("yielded %d \n",count);
+  //EPD_PRINT("yielded %d \n",count);
   //delayMicroseconds(4);
 
   // dma_buffer points at the buffer the CPU just finished writing.
@@ -186,16 +184,15 @@ bool EPD_Painter::begin() {
   #endif
 
   // -- Start I2C if needed.
-#ifdef ARDUINO
   if (_config.i2c.scl != -1 && _config.i2c.wire == nullptr) {
     TwoWire *w = new TwoWire(0);
     w->begin(_config.i2c.sda, _config.i2c.scl, _config.i2c.freq);
     _config.i2c.wire = w;
+#ifndef ARDUINO
+    _config.i2c.i2c_bus = w->getBus();
+#endif
     EPD_DELAY_MS(50);
   }
-#else
-  // I2C not used in ESP-IDF builds
-#endif
 
 
   // ---- Configure EPD control pins ----
@@ -317,10 +314,10 @@ bool EPD_Painter::begin() {
 
   // ── Create the power driver for this board ──
   if (_config.power.tps_addr != -1) {
-    printf("\n── PowerCtl Init ──\n");
+    EPD_PRINT("\n── PowerCtl Init ──\n");
     auto* pc = new epd_painter_powerctl();
     if (!pc->begin(_config)) {
-      printf("FATAL: powerctl init failed!\n");
+      EPD_PRINT("FATAL: powerctl init failed!\n");
       while (1) EPD_DELAY_MS(1000);
     }
     _powerDriver = pc;
@@ -427,7 +424,7 @@ void EPD_Painter::paint(uint8_t *framebuffer) {
   else
     epd_painter_compact_pixels(framebuffer, packed_paintbuffer, _config.width * _config.height);
 #ifdef EPD_ASM_TIMING
-  printf("[paint] compact_pixels: %lld us\n", esp_timer_get_time() - _cp_t0);
+  EPD_PRINT("[paint] compact_pixels: %lld us\n", esp_timer_get_time() - _cp_t0);
 #endif
 
   paintStage=(interlace_mode?3:2);
@@ -483,7 +480,7 @@ void EPD_Painter::paintLater(uint8_t *framebuffer) {
     else
       epd_painter_compact_pixels(framebuffer, packed_paintbuffer, _config.width * _config.height);
 #ifdef EPD_ASM_TIMING
-    printf("[paintLater] compact_pixels: %lld us\n", esp_timer_get_time() - _cpl_t0);
+    EPD_PRINT("[paintLater] compact_pixels: %lld us\n", esp_timer_get_time() - _cpl_t0);
 #endif
 
     
@@ -530,7 +527,7 @@ void EPD_Painter::_paint_task_body() {
       }
     }
 #ifdef EPD_ASM_TIMING
-    printf("[paint_task] epd_painter_ink (all rows): %lld us\n", esp_timer_get_time() - _ink_t0);
+    EPD_PRINT("[paint_task] epd_painter_ink (all rows): %lld us\n", esp_timer_get_time() - _ink_t0);
 #endif
 
     const uint8_t *lt_wf;
@@ -586,7 +583,7 @@ void EPD_Painter::_paint_task_body() {
       }
     }
 #ifdef EPD_ASM_TIMING
-    printf("[paint_task] convert_packed_fb_to_ink (all passes, all rows, darker+lighter): %lld us\n", _conv_total);
+    EPD_PRINT("[paint_task] convert_packed_fb_to_ink (all passes, all rows, darker+lighter): %lld us\n", _conv_total);
 #endif
 
     vTaskDelay(1);  // yield once per frame: feeds WDT and lets application task run
@@ -971,13 +968,12 @@ uint8_t* EPD_Painter::packBuffer(const uint8_t* fb) const {
 // begin() can fail cleanly instead of continuing with an invalid configuration.
 // =============================================================================
 bool EPD_Painter::autoDetectBoard() {
-  #ifdef ARDUINO
     if (_config.data_pins[0] >= 0) return true;
 
     Rotation _rotation = _config.rotation;
     int i = 1;
     for (const auto& probe : Probe) {
-      printf("[EPD] Probing board %d on SDA=%d, SCL=%d, addr=0x%x\n", i, probe.i2c_sda, probe.i2c_scl, probe.i2c_addr);
+      EPD_PRINT("[EPD] Probing board %d on SDA=%d, SCL=%d, addr=0x%x\n", i, probe.i2c_sda, probe.i2c_scl, probe.i2c_addr);
       TwoWire _w(1);   // use bus 1 just for the probe; will be deleted
       _w.begin(probe.i2c_sda, probe.i2c_scl, 100000);
       // Suppress ESP-IDF i2c_master NACK error logs — a NACK simply means
@@ -991,20 +987,16 @@ bool EPD_Painter::autoDetectBoard() {
       EPD_PIN_OUTPUT(probe.i2c_sda);
       EPD_PIN_OUTPUT(probe.i2c_scl);
       if(found) {
-        printf("[EPD] Board %d found\n", i);
+        EPD_PRINT("[EPD] Board %d found\n", i);
         _config = *probe.preset;
         _preset = probe.preset;
         _config.rotation = _rotation;  // preserve user-specified rotation across auto-detect
-        printf("[EPD] Detected panel details: \n - I2C SDA: %d\n - I2C SCL: %d\n", _config.i2c.sda, _config.i2c.scl);
+        EPD_PRINT("[EPD] Detected panel details: \n - I2C SDA: %d\n - I2C SCL: %d\n", _config.i2c.sda, _config.i2c.scl);
         return true;
       }
       ++i;
     }
 
-    printf("[EPD] No known board found; begin() will fail\n");
+    EPD_PRINT("[EPD] No known board found; begin() will fail\n");
     return false;
-  
-  #else
-    return false;
-  #endif
 }

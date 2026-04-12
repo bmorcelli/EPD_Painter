@@ -55,7 +55,7 @@ void EPD_BootCtl::_paintAndPowerOff() {
         _epd.paintPacked(packed);
         heap_caps_free(packed);
     }
-    delay(500);
+    EPD_DELAY_MS(500);
     _epd.clearBuffers();
     _powerOff();  // [[noreturn]]
 }
@@ -76,7 +76,7 @@ uint8_t* EPD_BootCtl::FractalImage::getBootImage(uint16_t W, uint16_t H) {
 
     uint8_t* packed = (uint8_t*)heap_caps_malloc(packed_size, MALLOC_CAP_SPIRAM);
     if (!packed) {
-        printf("[BOOT] fractal: PSRAM alloc failed (%u bytes)\n", (unsigned)packed_size);
+        EPD_PRINT("[BOOT] fractal: PSRAM alloc failed (%u bytes)\n", (unsigned)packed_size);
         return nullptr;
     }
 
@@ -106,13 +106,12 @@ void EPD_BootCtl::_powerOff() {
     const EPD_Painter::Config& cfg = _epd.getConfig();
 
     if (cfg.pin_syspwr >= 0) {
-        pinMode(cfg.pin_syspwr, OUTPUT);
-        digitalWrite(cfg.pin_syspwr, HIGH);
-        delay(100);
-        digitalWrite(cfg.pin_syspwr, LOW);
-        printf("[BOOT] pin_syspwr pulsed. If still running, USB is keeping device alive.\n");
+        EPD_PIN_OUTPUT(cfg.pin_syspwr);
+        EPD_PIN_HIGH(cfg.pin_syspwr);
+        EPD_DELAY_MS(100);
+        EPD_PIN_LOW(cfg.pin_syspwr);
+        EPD_PRINT("[BOOT] pin_syspwr pulsed. If still running, USB is keeping device alive.\n");
     } else {
-#ifdef ARDUINO
         TwoWire* wire = cfg.i2c.wire;
         if (wire) {
             const uint8_t BQ_ADDR = 0x6B;
@@ -125,9 +124,8 @@ void EPD_BootCtl::_powerOff() {
             wire->write(0x09);
             wire->write(reg | (1 << 5));  // BATFET_DIS
             wire->endTransmission();
-            printf("[BOOT] BQ25896 BATFET disabled. If still running, USB is keeping device alive.\n");
+            EPD_PRINT("[BOOT] BQ25896 BATFET disabled. If still running, USB is keeping device alive.\n");
         }
-#endif
     }
 
     esp_deep_sleep_start();
@@ -139,7 +137,6 @@ void EPD_BootCtl::_powerOff() {
 // =============================================================================
 
 bool EPD_BootCtl::_isUsbConnected() const {
-#ifdef ARDUINO
     const EPD_Painter::Config& cfg = _epd.getConfig();
     TwoWire* wire = cfg.i2c.wire;
     if (!wire) return false;
@@ -150,9 +147,6 @@ bool EPD_BootCtl::_isUsbConnected() const {
     if (wire->requestFrom(BQ_ADDR, (uint8_t)1) == 0) return false;
     uint8_t reg = wire->read();
     return (reg & 0xF8) != 0;
-#else
-    return false;
-#endif
 }
 
 // =============================================================================
