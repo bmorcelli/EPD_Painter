@@ -1,0 +1,16 @@
+menu "EPD Painter Configuration"
+
+    choice EPD_PAINTER_ESP_IDF_I2C_API
+        prompt "ESP-IDF I2C API Driver"
+        default EPD_PAINTER_ESP_IDF_NEW_API
+        help
+            Select which ESP-IDF I2C driver API to use. The new API (driver/i2c_master.h) is the default for newer IDF versions. The old legacy API (driver/i2c.h) is still functional in some projects. Do not mix them in the same project.
+
+        config EPD_PAINTER_ESP_IDF_NEW_API
+            bool "New API (driver/i2c_master.h)"
+
+        config EPD_PAINTER_ESP_IDF_OLD_API
+            bool "Old Legacy API (driver/i2c.h)"
+    endchoice
+
+endmenu
